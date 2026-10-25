@@ -59,25 +59,25 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
 </main>
 
 <script>
-// [ACIS station id, city, state, first full year of daily max/min records]
+// [ACIS station id, city, state, year ranges with a (near-)complete daily max/min record]
 const CITIES=[
-["ABQ","Albuquerque","NM",1892],["ANC","Anchorage","AK",1953],["ATL","Atlanta","GA",1929],["AUS","Austin","TX",1943],
-["BWI","Baltimore","MD",1951],["BIL","Billings","MT",1935],["BHM","Birmingham","AL",1930],["BOI","Boise","ID",1940],
-["BOS","Boston","MA",1936],["BUF","Buffalo","NY",1939],["BTV","Burlington","VT",1941],["CHS","Charleston","SC",1938],
-["CLT","Charlotte","NC",1940],["CYS","Cheyenne","WY",1936],["ORD","Chicago","IL",1959],["CVG","Cincinnati","OH",1948],
-["CLE","Cleveland","OH",1939],["CMH","Columbus","OH",1948],["DFW","Dallas–Fort Worth","TX",1974],["DEN","Denver","CO",1995],
-["DSM","Des Moines","IA",1940],["DTW","Detroit","MI",1959],["ELP","El Paso","TX",1939],["FAR","Fargo","ND",1892],
-["FAT","Fresno","CA",1948],["BDL","Hartford","CT",1949],["HNL","Honolulu","HI",1941],["IAH","Houston","TX",1970],
-["IND","Indianapolis","IN",1943],["JAX","Jacksonville","FL",1939],["MCI","Kansas City","MO",1973],["LAS","Las Vegas","NV",1949],
-["LIT","Little Rock","AR",1880],["LAX","Los Angeles","CA",1936],["SDF","Louisville","KY",1946],["MEM","Memphis","TN",1940],
-["MIA","Miami","FL",1938],["MKE","Milwaukee","WI",1939],["MSP","Minneapolis","MN",1939],["BNA","Nashville","TN",1940],
-["MSY","New Orleans","LA",1947],["NYC","New York (Central Park)","NY",1869],["OKC","Oklahoma City","OK",1948],["OMA","Omaha","NE",1936],
-["MCO","Orlando","FL",1953],["PHL","Philadelphia","PA",1941],["PHX","Phoenix","AZ",1934],["PIT","Pittsburgh","PA",1948],
-["PWM","Portland","ME",1941],["PDX","Portland","OR",1939],["PVD","Providence","RI",1933],["RDU","Raleigh","NC",1945],
-["RNO","Reno","NV",1938],["RIC","Richmond","VA",1930],["SAC","Sacramento","CA",1942],["STL","St. Louis","MO",1930],
-["SLC","Salt Lake City","UT",1929],["SAT","San Antonio","TX",1943],["SAN","San Diego","CA",1940],["SFO","San Francisco","CA",1946],
-["SEA","Seattle","WA",1945],["FSD","Sioux Falls","SD",1893],["GEG","Spokane","WA",1882],["TPA","Tampa","FL",1940],
-["TUS","Tucson","AZ",1947],["DCA","Washington","DC",1942],["ICT","Wichita","KS",1954]];
+["ABQ","Albuquerque","NM",[[1892,2026]]],["ANC","Anchorage","AK",[[1953,2026]]],["ATL","Atlanta","GA",[[1929,2026]]],["AUS","Austin","TX",[[1943,1945],[1947,1995],[1998,2026]]],
+["BWI","Baltimore","MD",[[1951,2026]]],["BIL","Billings","MT",[[1935,2026]]],["BHM","Birmingham","AL",[[1930,2026]]],["BOI","Boise","ID",[[1940,2026]]],
+["BOS","Boston","MA",[[1936,2026]]],["BUF","Buffalo","NY",[[1939,2026]]],["BTV","Burlington","VT",[[1941,2026]]],["CHS","Charleston","SC",[[1937,2026]]],
+["CLT","Charlotte","NC",[[1940,1941],[1944,2026]]],["CYS","Cheyenne","WY",[[1936,2026]]],["ORD","Chicago","IL",[[1959,2026]]],["CVG","Cincinnati","OH",[[1948,2026]]],
+["CLE","Cleveland","OH",[[1939,2026]]],["CMH","Columbus","OH",[[1948,2026]]],["DFW","Dallas–Fort Worth","TX",[[1974,2026]]],["DEN","Denver","CO",[[1995,2026]]],
+["DSM","Des Moines","IA",[[1940,2026]]],["DTW","Detroit","MI",[[1959,2026]]],["ELP","El Paso","TX",[[1939,2026]]],["FAR","Fargo","ND",[[1942,2026]]],
+["FAT","Fresno","CA",[[1948,2026]]],["BDL","Hartford","CT",[[1949,2026]]],["HNL","Honolulu","HI",[[1943,1947],[1950,2026]]],["IAH","Houston","TX",[[1970,2026]]],
+["IND","Indianapolis","IN",[[1943,2026]]],["JAX","Jacksonville","FL",[[1939,2026]]],["MCI","Kansas City","MO",[[1973,2026]]],["LAS","Las Vegas","NV",[[1949,2026]]],
+["LIT","Little Rock","AR",[[1880,1897],[1939,2026]]],["LAX","Los Angeles","CA",[[1936,2026]]],["SDF","Louisville","KY",[[1946,2026]]],["MEM","Memphis","TN",[[1940,2026]]],
+["MIA","Miami","FL",[[1937,2026]]],["MKE","Milwaukee","WI",[[1939,2026]]],["MSP","Minneapolis","MN",[[1939,2026]]],["BNA","Nashville","TN",[[1940,2026]]],
+["MSY","New Orleans","LA",[[1947,2026]]],["NYC","New York (Central Park)","NY",[[1869,2026]]],["OKC","Oklahoma City","OK",[[1948,2026]]],["OMA","Omaha","NE",[[1936,2026]]],
+["MCO","Orlando","FL",[[1953,1970],[1974,2026]]],["PHL","Philadelphia","PA",[[1941,2026]]],["PHX","Phoenix","AZ",[[1934,1934],[1938,1938],[1941,1944],[1948,2026]]],["PIT","Pittsburgh","PA",[[1948,2026]]],
+["PWM","Portland","ME",[[1941,2026]]],["PDX","Portland","OR",[[1939,2026]]],["PVD","Providence","RI",[[1933,2026]]],["RDU","Raleigh","NC",[[1945,2026]]],
+["RNO","Reno","NV",[[1937,2026]]],["RIC","Richmond","VA",[[1930,2026]]],["SAC","Sacramento","CA",[[1948,2026]]],["STL","St. Louis","MO",[[1930,2026]]],
+["SLC","Salt Lake City","UT",[[1929,2026]]],["SAT","San Antonio","TX",[[1943,2026]]],["SAN","San Diego","CA",[[1940,2026]]],["SFO","San Francisco","CA",[[1946,2026]]],
+["SEA","Seattle","WA",[[1945,2026]]],["FSD","Sioux Falls","SD",[[1893,2026]]],["GEG","Spokane","WA",[[1881,2026]]],["TPA","Tampa","FL",[[1939,2026]]],
+["TUS","Tucson","AZ",[[1949,2026]]],["DCA","Washington","DC",[[1942,2026]]],["ICT","Wichita","KS",[[1954,2026]]]];
 
 const $=id=>document.getElementById(id);
 const citySel=$('city'),yearSel=$('year'),statusEl=$('status'),out=$('out');
@@ -89,9 +89,13 @@ CITIES.forEach(([sid,name,st])=>citySel.add(new Option(name+', '+st,sid)));
 citySel.value=store.get('city')||'DEN';
 function fillYears(){
   const c=CITIES.find(c=>c[0]===citySel.value),prev=+yearSel.value||+store.get('year')||thisYear;
+  const years=[];
+  c[3].forEach(([a,b],i)=>{if(i===c[3].length-1&&b>=thisYear-1)b=thisYear; // open-ended current record
+    for(let y=a;y<=b;y++)years.push(y)});
   yearSel.innerHTML='';
-  for(let y=thisYear;y>=c[3];y--)yearSel.add(new Option(y+(y===thisYear?' (to date)':''),y));
-  yearSel.value=Math.min(Math.max(prev,c[3]),thisYear);
+  years.reverse().forEach(y=>yearSel.add(new Option(y+(y===thisYear?' (to date)':''),y)));
+  // keep the previous year if this city has it, else the nearest year it does have
+  yearSel.value=years.reduce((best,y)=>Math.abs(y-prev)<Math.abs(best-prev)?y:best,years[0]);
 }
 fillYears();
 
@@ -109,9 +113,9 @@ async function load(){
         body:JSON.stringify({sid,sdate:year+'-01-01',edate:end,elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]})});
       if(!r.ok)throw new Error('NOAA server returned '+r.status);
       const j=await r.json();
-      if(j.error)throw new Error(j.error);
+      if(j.error&&!/no data/i.test(j.error))throw new Error(j.error);
       rows=[];
-      for(const [d,h,l,nh,nl] of j.data){
+      for(const [d,h,l,nh,nl] of j.data||[]){
         const v=[h,l,nh,nl].map(Number);if(v.some(isNaN))continue; // 'M' = missing
         const doy=Math.round((Date.UTC(year,+d.slice(5,7)-1,+d.slice(8))-Date.UTC(year,0,1))/864e5)+1;
         rows.push({d,doy,h:v[0],l:v[1],nh:v[2],nl:v[3],dh:v[0]-v[2],dl:v[1]-v[3]});
@@ -120,13 +124,16 @@ async function load(){
     }
     if(id!==reqId)return;
     out.classList.remove('loading');
-    if(!rows.length){out.hidden=true;statusEl.className='status err';statusEl.textContent='No complete days of data for '+c[1]+' in '+year+'. Try another year.';return}
+    if(!rows.length){out.hidden=true;statusEl.className='status err';statusEl.textContent='NOAA has no daily records for '+c[1]+' in '+year+'. Try another year.';return}
     statusEl.textContent='';
     render(rows,c,year);
   }catch(e){
     if(id!==reqId)return;
-    out.classList.remove('loading');
-    statusEl.className='status err';statusEl.textContent='Could not load data ('+e.message+'). Check your internet connection and try again.';
+    out.classList.remove('loading');out.hidden=true;
+    statusEl.className='status err';
+    statusEl.textContent=e instanceof TypeError
+      ?'Could not reach the NOAA data service. Check your internet connection and try again.'
+      :'NOAA could not provide data for '+c[1]+' in '+year+' ('+e.message+'). Try another year or city.';
   }
 }
 
