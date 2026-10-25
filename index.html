@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Temperature vs. Normal</title>
+<style>
+/* Layout: one column - controls row, summary stats, two stacked column charts sharing one scale, data table. */
+:root{--surface:#fcfcfb;--panel:#f3f2ee;--ink:#0b0b0b;--ink2:#52514e;--muted:#8a8984;--grid:#e6e5e0;--line:#d6d4cd;--warm:#eb6834;--cool:#2a78d6;--hl:#0b0b0b;--err:#b3261e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--surface:#1a1a19;--panel:#242422;--ink:#fff;--ink2:#c3c2b7;--muted:#8f8e86;--grid:#2e2e2c;--line:#3b3b38;--warm:#d95926;--cool:#3987e5;--hl:#fff;--err:#f2867e;color-scheme:dark}}
+:root[data-theme="dark"]{--surface:#1a1a19;--panel:#242422;--ink:#fff;--ink2:#c3c2b7;--muted:#8f8e86;--grid:#2e2e2c;--line:#3b3b38;--warm:#d95926;--cool:#3987e5;--hl:#fff;--err:#f2867e;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:1100px;margin:0 auto;padding-block:20px 32px;padding-inline:16px}
+h1{font-size:21px;margin:0 0 4px;text-wrap:balance}p.sub{color:var(--ink2);margin:0 0 16px;max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:16px}
+.controls label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2);letter-spacing:.02em}
+select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0}
+#city{width:min(320px,100%)}
+select:focus-visible{outline:2px solid var(--cool);outline-offset:1px}
+.status{color:var(--ink2);font-size:13px;padding-bottom:8px}.status.err{color:var(--err)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:4px 0 8px}
+.stat{background:var(--panel);border-radius:8px;padding:10px 12px}
+.stat .k{font-size:12px;color:var(--ink2)}.stat .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}.stat .d{font-size:12px;color:var(--muted)}
+h2{font-size:15px;margin:22px 0 2px}h2 span{font-weight:400;color:var(--ink2)}
+.legend{display:flex;gap:18px;flex-wrap:wrap;color:var(--ink2);margin-top:14px}.sw{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:6px}
+.wrap{position:relative}svg{width:100%;height:auto;display:block}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--grid);border-radius:6px;padding:8px 10px;font-size:12.5px;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap;font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+#out.loading{opacity:.45;transition:opacity .2s}
+details{margin-top:18px;color:var(--ink2)}table.t{border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-align:right}table.t th:first-child,table.t td:first-child{text-align:left}
+.note{color:var(--muted);font-size:12.5px;margin-top:14px;max-width:80ch}
+@media (prefers-reduced-motion:reduce){#out.loading{transition:none}}
+</style>
+</head>
+<body>
+<main>
+<h1 id="title">Daily temperature vs. normal</h1>
+<p class="sub">Pick a city and year. Each column is one day's high or low minus NOAA's 1991–2020 normal for that date at the same weather station.</p>
+
+<div class="controls">
+  <label for="city">City<select id="city"></select></label>
+  <label for="year">Year<select id="year"></select></label>
+</div>
+<div class="status" id="status" role="status"></div>
+
+<div id="out" hidden>
+  <div class="stats" id="stats"></div>
+  <div class="legend"><span><span class="sw" style="background:var(--warm)"></span>Warmer than normal</span><span><span class="sw" style="background:var(--cool)"></span>Colder than normal</span></div>
+  <h2>Daily highs <span id="mh"></span></h2>
+  <div class="wrap"><svg id="ch" viewBox="0 0 1000 300" role="img" aria-label="Column chart of daily high temperature departures from normal"></svg><div class="tip" hidden></div></div>
+  <h2>Daily lows <span id="ml"></span></h2>
+  <div class="wrap"><svg id="cl" viewBox="0 0 1000 300" role="img" aria-label="Column chart of daily low temperature departures from normal"></svg><div class="tip" hidden></div></div>
+  <details><summary>Show data table</summary><div style="max-height:360px;overflow:auto"><table class="t" id="tbl"></table></div></details>
+</div>
+
+<p class="note">Data: NOAA daily observations and 1991–2020 daily normals, fetched live from the ACIS web service (data.rcc-acis.org). Each city uses its official airport (or Central Park for New York) climate station. The normals are the same 1991–2020 baseline for every year shown. Data for the last few days is preliminary.</p>
+</main>
+
+<script>
+// [ACIS station id, city, state, first full year of daily max/min records]
+const CITIES=[
+["ABQ","Albuquerque","NM",1892],["ANC","Anchorage","AK",1953],["ATL","Atlanta","GA",1929],["AUS","Austin","TX",1943],
+["BWI","Baltimore","MD",1951],["BIL","Billings","MT",1935],["BHM","Birmingham","AL",1930],["BOI","Boise","ID",1940],
+["BOS","Boston","MA",1936],["BUF","Buffalo","NY",1939],["BTV","Burlington","VT",1941],["CHS","Charleston","SC",1938],
+["CLT","Charlotte","NC",1940],["CYS","Cheyenne","WY",1936],["ORD","Chicago","IL",1959],["CVG","Cincinnati","OH",1948],
+["CLE","Cleveland","OH",1939],["CMH","Columbus","OH",1948],["DFW","Dallas–Fort Worth","TX",1974],["DEN","Denver","CO",1995],
+["DSM","Des Moines","IA",1940],["DTW","Detroit","MI",1959],["ELP","El Paso","TX",1939],["FAR","Fargo","ND",1892],
+["FAT","Fresno","CA",1948],["BDL","Hartford","CT",1949],["HNL","Honolulu","HI",1941],["IAH","Houston","TX",1970],
+["IND","Indianapolis","IN",1943],["JAX","Jacksonville","FL",1939],["MCI","Kansas City","MO",1973],["LAS","Las Vegas","NV",1949],
+["LIT","Little Rock","AR",1880],["LAX","Los Angeles","CA",1936],["SDF","Louisville","KY",1946],["MEM","Memphis","TN",1940],
+["MIA","Miami","FL",1938],["MKE","Milwaukee","WI",1939],["MSP","Minneapolis","MN",1939],["BNA","Nashville","TN",1940],
+["MSY","New Orleans","LA",1947],["NYC","New York (Central Park)","NY",1869],["OKC","Oklahoma City","OK",1948],["OMA","Omaha","NE",1936],
+["MCO","Orlando","FL",1953],["PHL","Philadelphia","PA",1941],["PHX","Phoenix","AZ",1934],["PIT","Pittsburgh","PA",1948],
+["PWM","Portland","ME",1941],["PDX","Portland","OR",1939],["PVD","Providence","RI",1933],["RDU","Raleigh","NC",1945],
+["RNO","Reno","NV",1938],["RIC","Richmond","VA",1930],["SAC","Sacramento","CA",1942],["STL","St. Louis","MO",1930],
+["SLC","Salt Lake City","UT",1929],["SAT","San Antonio","TX",1943],["SAN","San Diego","CA",1940],["SFO","San Francisco","CA",1946],
+["SEA","Seattle","WA",1945],["FSD","Sioux Falls","SD",1893],["GEG","Spokane","WA",1882],["TPA","Tampa","FL",1940],
+["TUS","Tucson","AZ",1947],["DCA","Washington","DC",1942],["ICT","Wichita","KS",1954]];
+
+const $=id=>document.getElementById(id);
+const citySel=$('city'),yearSel=$('year'),statusEl=$('status'),out=$('out');
+const today=new Date(),thisYear=today.getFullYear();
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+CITIES.forEach(([sid,name,st])=>citySel.add(new Option(name+', '+st,sid)));
+citySel.value=store.get('city')||'DEN';
+function fillYears(){
+  const c=CITIES.find(c=>c[0]===citySel.value),prev=+yearSel.value||+store.get('year')||thisYear;
+  yearSel.innerHTML='';
+  for(let y=thisYear;y>=c[3];y--)yearSel.add(new Option(y+(y===thisYear?' (to date)':''),y));
+  yearSel.value=Math.min(Math.max(prev,c[3]),thisYear);
+}
+fillYears();
+
+const cache=new Map();let reqId=0;
+async function load(){
+  const sid=citySel.value,year=+yearSel.value,c=CITIES.find(c=>c[0]===sid);
+  store.set('city',sid);store.set('year',year);
+  const key=sid+year,id=++reqId;
+  const end=year===thisYear?iso(new Date(today-864e5)):year+'-12-31';
+  statusEl.className='status';statusEl.textContent='Loading '+c[1]+' '+year+'…';out.classList.add('loading');
+  try{
+    let rows=cache.get(key);
+    if(!rows){
+      const r=await fetch('https://data.rcc-acis.org/StnData',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({sid,sdate:year+'-01-01',edate:end,elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]})});
+      if(!r.ok)throw new Error('NOAA server returned '+r.status);
+      const j=await r.json();
+      if(j.error)throw new Error(j.error);
+      rows=[];
+      for(const [d,h,l,nh,nl] of j.data){
+        const v=[h,l,nh,nl].map(Number);if(v.some(isNaN))continue; // 'M' = missing
+        const doy=Math.round((Date.UTC(year,+d.slice(5,7)-1,+d.slice(8))-Date.UTC(year,0,1))/864e5)+1;
+        rows.push({d,doy,h:v[0],l:v[1],nh:v[2],nl:v[3],dh:v[0]-v[2],dl:v[1]-v[3]});
+      }
+      cache.set(key,rows);
+    }
+    if(id!==reqId)return;
+    out.classList.remove('loading');
+    if(!rows.length){out.hidden=true;statusEl.className='status err';statusEl.textContent='No complete days of data for '+c[1]+' in '+year+'. Try another year.';return}
+    statusEl.textContent='';
+    render(rows,c,year);
+  }catch(e){
+    if(id!==reqId)return;
+    out.classList.remove('loading');
+    statusEl.className='status err';statusEl.textContent='Could not load data ('+e.message+'). Check your internet connection and try again.';
+  }
+}
+
+const W=1000,H=300,m={l:48,r:16,t:10,b:36},pw=W-m.l-m.r,ph=H-m.t-m.b;
+const ns='http://www.w3.org/2000/svg';
+const sg=v=>(v>0?'+':'')+v.toFixed(1)+'°';
+const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtDate=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+
+function render(D,c,year){
+  out.hidden=false;
+  const name=c[1]+', '+c[2];
+  $('title').textContent=name+' '+year+': daily temperature vs. normal';
+  document.title=c[1]+' '+year+' vs. Normal';
+  const avg=k=>D.reduce((s,r)=>s+r[k],0)/D.length;
+  const mh=avg('dh'),ml=avg('dl'),warm=D.filter(r=>r.dh>0).length;
+  const hot=D.reduce((a,r)=>r.dh>a.dh?r:a),cold=D.reduce((a,r)=>r.dl<a.dl?r:a);
+  $('stats').innerHTML=
+    stat('Highs vs. normal',sg(mh)+'F','average, '+D.length+' days')+
+    stat('Lows vs. normal',sg(ml)+'F','average, '+fmtDate(D[0].d)+' – '+fmtDate(D[D.length-1].d))+
+    stat('Days with above-normal high',warm+' of '+D.length,Math.round(100*warm/D.length)+'% of days')+
+    stat('Biggest warm departure',sg(hot.dh),fmtDate(hot.d)+': high '+hot.h+'° vs. '+hot.nh+'°')+
+    stat('Biggest cold departure',sg(cold.dl),fmtDate(cold.d)+': low '+cold.l+'° vs. '+cold.nl+'°');
+  $('mh').textContent='· average '+sg(mh)+'F';$('ml').textContent='· average '+sg(ml)+'F';
+  const days=(year%4===0&&(year%100!==0||year%400===0))?366:365;
+  const ymax=Math.max(10,Math.ceil(Math.max(...D.flatMap(r=>[Math.abs(r.dh),Math.abs(r.dl)]))/10)*10);
+  chart($('ch'),D,days,ymax,'dh','h','nh','High');
+  chart($('cl'),D,days,ymax,'dl','l','nl','Low');
+  $('tbl').innerHTML='<tr><th>Date</th><th>Day</th><th>High</th><th>Normal</th><th>Diff</th><th>Low</th><th>Normal</th><th>Diff</th></tr>'+
+    D.map(r=>'<tr><td>'+r.d+'</td><td>'+r.doy+'</td><td>'+r.h+'</td><td>'+r.nh+'</td><td>'+sg(r.dh)+'</td><td>'+r.l+'</td><td>'+r.nl+'</td><td>'+sg(r.dl)+'</td></tr>').join('');
+}
+function stat(k,v,d){return '<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>'}
+
+function chart(svg,D,days,ymax,key,act,nrm,label){
+  svg.replaceChildren();
+  const step=pw/days,bw=Math.max(1,step*0.78);
+  const x=d=>m.l+(d-1)*step,y=v=>m.t+(ymax-v)/(2*ymax)*ph;
+  const el=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e};
+  const tick=ymax>40?20:10;
+  for(let v=-ymax;v<=ymax;v+=tick){if(v)el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:'var(--grid)'});
+    el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end','font-size':12,fill:'var(--ink2)'}).textContent=(v>0?'+':'')+v+'°'}
+  let s=0;const len=[31,days===366?29:28,31,30,31,30,31,31,30,31,30,31];
+  len.forEach((n,i)=>{el('line',{x1:x(s+1),x2:x(s+1),y1:H-m.b,y2:H-m.b+5,stroke:'var(--muted)'});
+    el('text',{x:x(s+1)+3,y:H-m.b+18,'font-size':12,fill:'var(--ink2)'}).textContent=mo[i];s+=n});
+  el('text',{x:m.l+pw/2,y:H-2,'text-anchor':'middle','font-size':12,fill:'var(--muted)'}).textContent='Day of year';
+  el('text',{x:12,y:m.t+ph/2,'text-anchor':'middle','font-size':12,fill:'var(--muted)',transform:'rotate(-90 12 '+(m.t+ph/2)+')'}).textContent='°F vs. normal';
+  const byDay=new Map();
+  D.forEach(r=>{const v=r[key];byDay.set(r.doy,{r,bar:el('rect',{x:x(r.doy)+(step-bw)/2,y:y(Math.max(v,0)),width:bw,height:Math.max(0.5,Math.abs(y(v)-y(0))),fill:v>=0?'var(--warm)':'var(--cool)'})})});
+  el('line',{x1:m.l,x2:W-m.r,y1:y(0),y2:y(0),stroke:'var(--muted)','stroke-width':1.5});
+  const tip=svg.parentNode.querySelector('.tip');tip.hidden=true;let cur=null;
+  const hit=el('rect',{x:m.l,y:m.t,width:pw,height:ph,fill:'transparent'});
+  const clear=()=>{tip.hidden=true;if(cur)cur.removeAttribute('stroke');cur=null};
+  hit.addEventListener('pointermove',ev=>{
+    const b=svg.getBoundingClientRect(),sx=(ev.clientX-b.left)*W/b.width,o=byDay.get(Math.floor((sx-m.l)/step)+1);
+    if(!o){clear();return}
+    const r=o.r;if(cur)cur.removeAttribute('stroke');cur=o.bar;cur.setAttribute('stroke','var(--hl)');cur.setAttribute('stroke-width',1);
+    tip.innerHTML='<b>'+new Date(r.d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'</b> · day '+r.doy+
+      '<br>'+label+': '+r[act]+'° (normal '+r[nrm]+'°)<br>Difference: <b>'+sg(r[key])+'</b>';
+    tip.hidden=false;const px=(x(r.doy)+step/2)*b.width/W,tw=tip.offsetWidth;
+    tip.style.left=(px+12+tw>b.width?px-12-tw:px+12)+'px';tip.style.top='6px'});
+  hit.addEventListener('pointerleave',clear);
+}
+
+citySel.addEventListener('change',()=>{fillYears();load()});
+yearSel.addEventListener('change',load);
+load();
+</script>
+</body>
+</html>

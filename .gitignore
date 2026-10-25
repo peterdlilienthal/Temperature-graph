@@ -1,0 +1,5 @@
+.claude/
+acis.json
+denver_temps.csv
+denver_temp_anomaly.html
+__pycache__/
