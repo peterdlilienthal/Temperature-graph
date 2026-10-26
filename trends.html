@@ -13,6 +13,9 @@
 body{margin:0;background:var(--surface);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
 main{max-width:1100px;margin:0 auto;padding-block:20px 32px;padding-inline:16px}
 h1{font-size:21px;margin:0 0 4px;text-wrap:balance}p.sub{color:var(--ink2);margin:0 0 16px;max-width:75ch}
+.head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:8px 16px}.head h1{flex:1 1 20rem;min-width:0}
+.unitbtn{font:inherit;font-size:13px;font-weight:600;color:var(--cool);background:var(--surface);border:1px solid var(--cool);border-radius:6px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.unitbtn:hover{background:var(--panel)}.unitbtn:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
 .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px}
 .controls label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2);letter-spacing:.02em}
 select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 10px;width:min(320px,100%)}
@@ -34,7 +37,10 @@ h2{font-size:15px;margin:0 0 2px}
 </head>
 <body>
 <main>
-<h1 id="title">Historical trends</h1>
+<div class="head">
+  <h1 id="title">Historical trends</h1>
+  <button type="button" id="units" class="unitbtn">Use Celsius</button>
+</div>
 <p class="sub">Each point is one year's summary statistic, calculated the same way as on the daily page: every day's high or low compared with NOAA's 1991–2020 normal for that date. Click a point to see that year day by day.</p>
 <div class="controls">
   <label for="city">City<select id="city"></select></label>
@@ -54,6 +60,7 @@ h2{font-size:15px;margin:0 0 2px}
 </main>
 
 <script src="cities.js"></script>
+<script src="units.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 const citySel=$('city'),statusEl=$('status'),out=$('out');
@@ -129,19 +136,22 @@ function fit(pts){ // least squares y = a + b*x
 function niceStep(range){const raw=range/5,p=10**Math.floor(Math.log10(raw)),m=raw/p;return (m<1.5?1:m<3?2:m<7?5:10)*p}
 
 const W=1000,H=250,m={l:52,r:16,t:12,b:28},pw=W-m.l-m.r,ph=H-m.t-m.b,ns='http://www.w3.org/2000/svg';
+let lastRender=null;
 function render(years,sid){
+  lastRender=[years,sid];
   out.hidden=false;
   const host=$('charts');host.replaceChildren();
   const x0=years[0].y-1,x1=Math.max(years.at(-1).y,thisYear)+1;
   STATS.forEach(s=>{
+    const v=r=>s.fmt?r[s.id]:toD(r[s.id]); // shown in the chosen unit; % stays as is
     const sec=document.createElement('section');host.appendChild(sec);
-    const full=years.filter(r=>!r.partial),t=fit(full.map(r=>[r.y,r[s.id]]));
-    const per=t.b*10,fmtv=s.fmt||(v=>sg(v)+'F');
-    sec.innerHTML='<h2>'+s.title+'</h2><p class="trend">Trend: <b>'+(per>=0?'+':'')+per.toFixed(s.fmt?1:2)+(s.fmt?' percentage points':'°F')+' per decade</b> over '+full[0].y+'–'+full.at(-1).y+'</p>'+
+    const full=years.filter(r=>!r.partial),t=fit(full.map(r=>[r.y,v(r)]));
+    const per=t.b*10,fmtv=s.fmt||(x=>sg(x)+unit());
+    sec.innerHTML='<h2>'+s.title+'</h2><p class="trend">Trend: <b>'+(per>=0?'+':'')+per.toFixed(s.fmt?1:2)+(s.fmt?' percentage points':'°'+unit())+' per decade</b> over '+full[0].y+'–'+full.at(-1).y+'</p>'+
       '<div class="wrap"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+s.title+' by year"></svg><div class="tip" hidden></div></div>';
     const svg=sec.querySelector('svg'),tip=sec.querySelector('.tip');
     const el=(tag,a)=>{const e=document.createElementNS(ns,tag);for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e};
-    const vals=years.map(r=>r[s.id]).concat(s.zero?[0]:[]).concat(s.ref?[s.ref]:[]);
+    const vals=years.map(r=>v(r)).concat(s.zero?[0]:[]).concat(s.ref?[s.ref]:[]);
     let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*0.08||1;lo-=pad;hi+=pad;
     const step=niceStep(hi-lo);lo=Math.floor(lo/step)*step;hi=Math.ceil(hi/step)*step;
     const x=v=>m.l+(v-x0)/(x1-x0)*pw,y=v=>m.t+(hi-v)/(hi-lo)*ph;
@@ -156,8 +166,8 @@ function render(years,sid){
       el('line',{x1:x(v),x2:x(v),y1:H-m.b,y2:H-m.b+5,stroke:'var(--muted)'});
       el('text',{x:x(v),y:H-m.b+18,'text-anchor':'middle','font-size':12,fill:'var(--ink2)'}).textContent=v;
     }
-    const col=r=>s.color?'var(--'+s.color+')':s.sign?(r[s.id]>=0?'var(--warm)':'var(--cool)'):'var(--neutral)';
-    const dots=years.map(r=>el('circle',{cx:x(r.y),cy:y(r[s.id]),r:4,fill:r.partial?'var(--surface)':col(r),stroke:r.partial?col(r):'var(--surface)','stroke-width':r.partial?1.8:1.2}));
+    const col=r=>s.color?'var(--'+s.color+')':s.sign?(v(r)>=0?'var(--warm)':'var(--cool)'):'var(--neutral)';
+    const dots=years.map(r=>el('circle',{cx:x(r.y),cy:y(v(r)),r:4,fill:r.partial?'var(--surface)':col(r),stroke:r.partial?col(r):'var(--surface)','stroke-width':r.partial?1.8:1.2}));
     el('line',{x1:x(full[0].y),x2:x(full.at(-1).y),y1:y(t.a+t.b*full[0].y),y2:y(t.a+t.b*full.at(-1).y),stroke:'var(--ink)','stroke-width':2,'stroke-linecap':'round',opacity:.75});
     // hover + click target: nearest year to the pointer
     const hit=el('rect',{x:m.l,y:m.t,width:pw,height:ph,fill:'transparent',style:'cursor:pointer'});
@@ -168,12 +178,13 @@ function render(years,sid){
     hit.addEventListener('pointermove',ev=>{const i=pick(ev);if(i<0){clear();return}
       if(cur>=0)dots[cur].setAttribute('r',4);cur=i;dots[i].setAttribute('r',6.5);
       const r=years[i],b=svg.getBoundingClientRect();
-      tip.innerHTML='<b>'+r.y+'</b>'+(r.partial?' (through '+new Date(r.last+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+')':'')+'<br>'+fmtv(r[s.id])+'<br><span style="color:var(--muted)">'+r.n+' days · click for daily chart</span>';
+      tip.innerHTML='<b>'+r.y+'</b>'+(r.partial?' (through '+new Date(r.last+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+')':'')+'<br>'+fmtv(v(r))+'<br><span style="color:var(--muted)">'+r.n+' days · click for daily chart</span>';
       tip.hidden=false;const px=x(r.y)*b.width/W,tw=tip.offsetWidth;tip.style.left=(px+12+tw>b.width?px-12-tw:px+12)+'px';tip.style.top='6px'});
     hit.addEventListener('pointerleave',clear);
     hit.addEventListener('click',ev=>{const i=pick(ev);if(i>=0)location.href='index.html?city='+sid+'&year='+years[i].y});
   });
 }
+unitButton($('units'),()=>{if(lastRender)render(...lastRender)});
 citySel.addEventListener('change',load);
 load();
 </script>

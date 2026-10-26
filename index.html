@@ -16,6 +16,9 @@ h1{font-size:21px;margin:0 0 4px;text-wrap:balance}p.sub{color:var(--ink2);margi
 .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:16px}
 .btn{font:inherit;font-weight:600;color:#fff;background:var(--cool);border-radius:6px;padding:7px 14px;text-decoration:none;border:1px solid var(--cool)}
 .btn:hover{filter:brightness(1.08)}.btn:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
+.head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:8px 16px}.head h1{flex:1 1 20rem;min-width:0}
+.unitbtn{font:inherit;font-size:13px;font-weight:600;color:var(--cool);background:var(--surface);border:1px solid var(--cool);border-radius:6px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.unitbtn:hover{background:var(--panel)}.unitbtn:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
 .controls label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2);letter-spacing:.02em}
 select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0}
 #city{width:min(320px,100%)}
@@ -49,7 +52,10 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
 </head>
 <body>
 <main>
-<h1><span id="title">Daily temperature</span> vs. <button type="button" class="term" popovertarget="normal-note">normal</button></h1>
+<div class="head">
+  <h1><span id="title">Daily temperature</span> vs. <button type="button" class="term" popovertarget="normal-note">normal</button></h1>
+  <button type="button" id="units" class="unitbtn">Use Celsius</button>
+</div>
 <p class="sub">Pick a city and year. Each column is one day's high or low minus NOAA's 1991–2020 normal for that date at the same weather station.</p>
 
 <div class="controls">
@@ -100,6 +106,7 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
 </div>
 
 <script src="cities.js"></script>
+<script src="units.js"></script>
 <script>
 
 const $=id=>document.getElementById(id);
@@ -170,8 +177,12 @@ const sg=v=>(v>0?'+':'')+v.toFixed(1)+'°';
 const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const fmtDate=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
 
-function render(D,c,year){
+let lastRender=null; // [rows in °F, city, year] so the unit button can redraw without refetching
+function render(rows,c,year){
+  lastRender=[rows,c,year];
   out.hidden=false;
+  const D=rows.map(r=>({...r,h:toT(r.h),l:toT(r.l),nh:toT(r.nh),nl:toT(r.nl),dh:toD(r.dh),dl:toD(r.dl)}));
+  const U=unit();
   const name=c[1]+', '+c[2];
   $('title').textContent=name+' '+year+': daily temperature';
   document.title=c[1]+' '+year+' vs. Normal';
@@ -179,17 +190,18 @@ function render(D,c,year){
   const mh=avg('dh'),ml=avg('dl'),warm=D.filter(r=>r.dh>0).length;
   const hot=D.reduce((a,r)=>r.dh>a.dh?r:a),cold=D.reduce((a,r)=>r.dl<a.dl?r:a);
   $('stats').innerHTML=
-    stat('Highs vs. normal',sg(mh)+'F','average, '+D.length+' days')+
-    stat('Lows vs. normal',sg(ml)+'F','average, '+fmtDate(D[0].d)+' – '+fmtDate(D[D.length-1].d))+
+    stat('Highs vs. normal',sg(mh)+U,'average, '+D.length+' days')+
+    stat('Lows vs. normal',sg(ml)+U,'average, '+fmtDate(D[0].d)+' – '+fmtDate(D[D.length-1].d))+
     stat('Days with above-normal high',warm+' of '+D.length,Math.round(100*warm/D.length)+'% of days')+
-    stat('Biggest warm departure',sg(hot.dh),fmtDate(hot.d)+': high '+hot.h+'° vs. '+hot.nh+'°')+
-    stat('Biggest cold departure',sg(cold.dl),fmtDate(cold.d)+': low '+cold.l+'° vs. '+cold.nl+'°');
-  $('mh').textContent='· average '+sg(mh)+'F';$('ml').textContent='· average '+sg(ml)+'F';
+    stat('Biggest warm departure',sg(hot.dh)+U,fmtDate(hot.d)+': high '+hot.h+'° vs. '+hot.nh+'°')+
+    stat('Biggest cold departure',sg(cold.dl)+U,fmtDate(cold.d)+': low '+cold.l+'° vs. '+cold.nl+'°');
+  $('mh').textContent='· average '+sg(mh)+U;$('ml').textContent='· average '+sg(ml)+U;
   const days=(year%4===0&&(year%100!==0||year%400===0))?366:365;
-  const ymax=Math.max(10,Math.ceil(Math.max(...D.flatMap(r=>[Math.abs(r.dh),Math.abs(r.dl)]))/10)*10);
+  const g=useC?5:10; // axis rounding: 10 °F or 5 °C
+  const ymax=Math.max(g,Math.ceil(Math.max(...D.flatMap(r=>[Math.abs(r.dh),Math.abs(r.dl)]))/g)*g);
   chart($('ch'),D,days,ymax,'dh','h','nh','High');
   chart($('cl'),D,days,ymax,'dl','l','nl','Low');
-  $('tbl').innerHTML='<tr><th>Date</th><th>Day</th><th>High</th><th>Normal</th><th>Diff</th><th>Low</th><th>Normal</th><th>Diff</th></tr>'+
+  $('tbl').innerHTML='<tr><th>Date</th><th>Day</th><th>High °'+U+'</th><th>Normal</th><th>Diff</th><th>Low °'+U+'</th><th>Normal</th><th>Diff</th></tr>'+
     D.map(r=>'<tr><td>'+r.d+'</td><td>'+r.doy+'</td><td>'+r.h+'</td><td>'+r.nh+'</td><td>'+sg(r.dh)+'</td><td>'+r.l+'</td><td>'+r.nl+'</td><td>'+sg(r.dl)+'</td></tr>').join('');
 }
 function stat(k,v,d){return '<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>'}
@@ -199,14 +211,14 @@ function chart(svg,D,days,ymax,key,act,nrm,label){
   const step=pw/days,bw=Math.max(1,step*0.78);
   const x=d=>m.l+(d-1)*step,y=v=>m.t+(ymax-v)/(2*ymax)*ph;
   const el=(t,a)=>{const e=document.createElementNS(ns,t);for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e};
-  const tick=ymax>40?20:10;
+  const tick=useC?(ymax>20?10:5):(ymax>40?20:10);
   for(let v=-ymax;v<=ymax;v+=tick){if(v)el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:'var(--grid)'});
     el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end','font-size':12,fill:'var(--ink2)'}).textContent=(v>0?'+':'')+v+'°'}
   let s=0;const len=[31,days===366?29:28,31,30,31,30,31,31,30,31,30,31];
   len.forEach((n,i)=>{el('line',{x1:x(s+1),x2:x(s+1),y1:H-m.b,y2:H-m.b+5,stroke:'var(--muted)'});
     el('text',{x:x(s+1)+3,y:H-m.b+18,'font-size':12,fill:'var(--ink2)'}).textContent=mo[i];s+=n});
   el('text',{x:m.l+pw/2,y:H-2,'text-anchor':'middle','font-size':12,fill:'var(--muted)'}).textContent='Day of year';
-  el('text',{x:12,y:m.t+ph/2,'text-anchor':'middle','font-size':12,fill:'var(--muted)',transform:'rotate(-90 12 '+(m.t+ph/2)+')'}).textContent='°F vs. normal';
+  el('text',{x:12,y:m.t+ph/2,'text-anchor':'middle','font-size':12,fill:'var(--muted)',transform:'rotate(-90 12 '+(m.t+ph/2)+')'}).textContent='°'+unit()+' vs. normal';
   const byDay=new Map();
   D.forEach(r=>{const v=r[key];byDay.set(r.doy,{r,bar:el('rect',{x:x(r.doy)+(step-bw)/2,y:y(Math.max(v,0)),width:bw,height:Math.max(0.5,Math.abs(y(v)-y(0))),fill:v>=0?'var(--warm)':'var(--cool)'})})});
   el('line',{x1:m.l,x2:W-m.r,y1:y(0),y2:y(0),stroke:'var(--muted)','stroke-width':1.5});
@@ -218,7 +230,7 @@ function chart(svg,D,days,ymax,key,act,nrm,label){
     if(!o){clear();return}
     const r=o.r;if(cur)cur.removeAttribute('stroke');cur=o.bar;cur.setAttribute('stroke','var(--hl)');cur.setAttribute('stroke-width',1);
     tip.innerHTML='<b>'+new Date(r.d+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})+'</b> · day '+r.doy+
-      '<br>'+label+': '+r[act]+'° (normal '+r[nrm]+'°)<br>Difference: <b>'+sg(r[key])+'</b>';
+      '<br>'+label+': '+r[act]+'°'+unit()+' (normal '+r[nrm]+'°)<br>Difference: <b>'+sg(r[key])+unit()+'</b>';
     tip.hidden=false;const px=(x(r.doy)+step/2)*b.width/W,tw=tip.offsetWidth;
     tip.style.left=(px+12+tw>b.width?px-12-tw:px+12)+'px';tip.style.top='6px'});
   hit.addEventListener('pointerleave',clear);
@@ -230,6 +242,7 @@ $('citytbl').innerHTML='<tr><th>City</th><th>Data starts</th><th>Years missing</
   return '<tr><td><a href="?city='+sid+'">'+name+', '+st+'</a></td><td>'+r[0][0]+'</td><td>'+(gaps||'—')+'</td></tr>'}).join('');
 const trendsLink=()=>{$('trends').href='trends.html?city='+citySel.value};
 trendsLink();
+unitButton($('units'),()=>{if(lastRender)render(...lastRender)});
 citySel.addEventListener('change',()=>{fillYears();trendsLink();load()});
 yearSel.addEventListener('change',load);
 load();
