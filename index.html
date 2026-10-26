@@ -14,6 +14,8 @@ body{margin:0;background:var(--surface);color:var(--ink);font:14px/1.45 system-u
 main{max-width:1100px;margin:0 auto;padding-block:20px 32px;padding-inline:16px}
 h1{font-size:21px;margin:0 0 4px;text-wrap:balance}p.sub{color:var(--ink2);margin:0 0 16px;max-width:70ch}
 .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:16px}
+.btn{font:inherit;font-weight:600;color:#fff;background:var(--cool);border-radius:6px;padding:7px 14px;text-decoration:none;border:1px solid var(--cool)}
+.btn:hover{filter:brightness(1.08)}.btn:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
 .controls label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2);letter-spacing:.02em}
 select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0}
 #city{width:min(320px,100%)}
@@ -52,6 +54,7 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
 <div class="controls">
   <label for="city">City<select id="city"></select></label>
   <label for="year">Year<select id="year"></select></label>
+  <a id="trends" class="btn" href="trends.html" target="_blank" rel="noopener">Historical Trends</a>
 </div>
 <div class="status" id="status" role="status"></div>
 
@@ -94,26 +97,8 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
   <button type="button" class="close" popovertarget="explanation-note" popovertargetaction="hide">Close</button>
 </div>
 
+<script src="cities.js"></script>
 <script>
-// [ACIS station id, city, state, year ranges with a (near-)complete daily max/min record]
-const CITIES=[
-["ABQ","Albuquerque","NM",[[1892,2026]]],["ANC","Anchorage","AK",[[1953,2026]]],["ATL","Atlanta","GA",[[1929,2026]]],["AUS","Austin","TX",[[1943,1945],[1947,1995],[1998,2026]]],
-["BWI","Baltimore","MD",[[1951,2026]]],["BIL","Billings","MT",[[1935,2026]]],["BHM","Birmingham","AL",[[1930,2026]]],["BOI","Boise","ID",[[1940,2026]]],
-["BOS","Boston","MA",[[1936,2026]]],["BUF","Buffalo","NY",[[1939,2026]]],["BTV","Burlington","VT",[[1941,2026]]],["CHS","Charleston","SC",[[1937,2026]]],
-["CLT","Charlotte","NC",[[1940,1941],[1944,2026]]],["CYS","Cheyenne","WY",[[1936,2026]]],["ORD","Chicago","IL",[[1959,2026]]],["CVG","Cincinnati","OH",[[1948,2026]]],
-["CLE","Cleveland","OH",[[1939,2026]]],["CMH","Columbus","OH",[[1948,2026]]],["DFW","Dallas–Fort Worth","TX",[[1974,2026]]],["DEN","Denver","CO",[[1995,2026]]],
-["DSM","Des Moines","IA",[[1940,2026]]],["DTW","Detroit","MI",[[1959,2026]]],["ELP","El Paso","TX",[[1939,2026]]],["FAR","Fargo","ND",[[1942,2026]]],
-["FAT","Fresno","CA",[[1948,2026]]],["BDL","Hartford","CT",[[1949,2026]]],["HNL","Honolulu","HI",[[1943,1947],[1950,2026]]],["IAH","Houston","TX",[[1970,2026]]],
-["IND","Indianapolis","IN",[[1943,2026]]],["JAX","Jacksonville","FL",[[1939,2026]]],["MCI","Kansas City","MO",[[1973,2026]]],["LAS","Las Vegas","NV",[[1949,2026]]],
-["LIT","Little Rock","AR",[[1880,1897],[1939,2026]]],["LAX","Los Angeles","CA",[[1936,2026]]],["SDF","Louisville","KY",[[1946,2026]]],["MEM","Memphis","TN",[[1940,2026]]],
-["MIA","Miami","FL",[[1937,2026]]],["MKE","Milwaukee","WI",[[1939,2026]]],["MSP","Minneapolis","MN",[[1939,2026]]],["BNA","Nashville","TN",[[1940,2026]]],
-["MSY","New Orleans","LA",[[1947,2026]]],["NYC","New York (Central Park)","NY",[[1869,2026]]],["OKC","Oklahoma City","OK",[[1948,2026]]],["OMA","Omaha","NE",[[1936,2026]]],
-["MCO","Orlando","FL",[[1953,1970],[1974,2026]]],["PHL","Philadelphia","PA",[[1941,2026]]],["PHX","Phoenix","AZ",[[1934,1934],[1938,1938],[1941,1944],[1948,2026]]],["PIT","Pittsburgh","PA",[[1948,2026]]],
-["PWM","Portland","ME",[[1941,2026]]],["PDX","Portland","OR",[[1939,2026]]],["PVD","Providence","RI",[[1933,2026]]],["RDU","Raleigh","NC",[[1945,2026]]],
-["RNO","Reno","NV",[[1937,2026]]],["RIC","Richmond","VA",[[1930,2026]]],["SAC","Sacramento","CA",[[1948,2026]]],["STL","St. Louis","MO",[[1930,2026]]],
-["SLC","Salt Lake City","UT",[[1929,2026]]],["SAT","San Antonio","TX",[[1943,2026]]],["SAN","San Diego","CA",[[1940,2026]]],["SFO","San Francisco","CA",[[1946,2026]]],
-["SEA","Seattle","WA",[[1945,2026]]],["FSD","Sioux Falls","SD",[[1893,2026]]],["GEG","Spokane","WA",[[1881,2026]]],["TPA","Tampa","FL",[[1939,2026]]],
-["TUS","Tucson","AZ",[[1949,2026]]],["DCA","Washington","DC",[[1942,2026]]],["ICT","Wichita","KS",[[1954,2026]]]];
 
 const $=id=>document.getElementById(id);
 const citySel=$('city'),yearSel=$('year'),statusEl=$('status'),out=$('out');
@@ -122,9 +107,12 @@ const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+Stri
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
 CITIES.forEach(([sid,name,st])=>citySel.add(new Option(name+', '+st,sid)));
-citySel.value=store.get('city')||'DEN';
+// ?city=DEN&year=1950 (links from the trends page) wins over the remembered choice
+const qp=new URLSearchParams(location.search);
+citySel.value=qp.get('city')||store.get('city')||'DEN';
+if(!citySel.value)citySel.value='DEN';
 function fillYears(){
-  const c=CITIES.find(c=>c[0]===citySel.value),prev=+yearSel.value||+store.get('year')||thisYear;
+  const c=CITIES.find(c=>c[0]===citySel.value),prev=+yearSel.value||+qp.get('year')||+store.get('year')||thisYear;
   const years=[];
   c[3].forEach(([a,b],i)=>{if(i===c[3].length-1&&b>=thisYear-1)b=thisYear; // open-ended current record
     for(let y=a;y<=b;y++)years.push(y)});
@@ -139,6 +127,7 @@ const cache=new Map();let reqId=0;
 async function load(){
   const sid=citySel.value,year=+yearSel.value,c=CITIES.find(c=>c[0]===sid);
   store.set('city',sid);store.set('year',year);
+  history.replaceState(null,'','?city='+sid+'&year='+year); // so reload and sharing keep the current view
   const key=sid+year,id=++reqId;
   const end=year===thisYear?iso(new Date(today-864e5)):year+'-12-31';
   statusEl.className='status';statusEl.textContent='Loading '+c[1]+' '+year+'…';out.classList.add('loading');
@@ -233,7 +222,9 @@ function chart(svg,D,days,ymax,key,act,nrm,label){
   hit.addEventListener('pointerleave',clear);
 }
 
-citySel.addEventListener('change',()=>{fillYears();load()});
+const trendsLink=()=>{$('trends').href='trends.html?city='+citySel.value};
+trendsLink();
+citySel.addEventListener('change',()=>{fillYears();trendsLink();load()});
 yearSel.addEventListener('change',load);
 load();
 </script>
