@@ -28,6 +28,9 @@ a{color:var(--cool)}
 .key i{display:inline-block;vertical-align:middle;margin-right:6px}
 section{margin-top:22px}
 h2{font-size:15px;margin:0 0 2px}
+.thr{font:inherit;font-weight:600;width:4.2em;padding:1px 6px;margin:0 2px;color:var(--ink);background:var(--panel);border:1px solid var(--cool);border-radius:5px;text-align:right}
+.thr:focus-visible{outline:2px solid var(--cool);outline-offset:1px}
+h2 .u{font-weight:700;color:var(--cool)}
 .trend{font-size:13px;color:var(--ink2);margin:0 0 4px}.trend b{color:var(--ink);font-variant-numeric:tabular-nums}
 .wrap{position:relative}svg{width:100%;height:auto;display:block}
 .tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--grid);border-radius:6px;padding:7px 10px;font-size:12.5px;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -56,7 +59,7 @@ h2{font-size:15px;margin:0 0 2px}
   </div>
   <div id="charts"></div>
 </div>
-<p class="note">Data: NOAA daily observations and 1991–2020 daily normals from the ACIS web service (data.rcc-acis.org), for the city's official climate station. Years with fewer than 300 days of complete readings are left out. Trend lines are ordinary least-squares fits over the complete years shown. Because every year is compared with the same 1991–2020 normals, years before 1991 tend to sit below zero and recent years above it when a station has warmed.</p>
+<p class="note">Data: NOAA daily observations and 1991–2020 daily normals from the ACIS web service (data.rcc-acis.org), for the city's official climate station. Years with fewer than 300 days of complete readings are left out; in years with a few missing days, the day counts can be slightly low. Trend lines are ordinary least-squares fits over the complete years shown. Because every year is compared with the same 1991–2020 normals, years before 1991 tend to sit below zero and recent years above it when a station has warmed.</p>
 </main>
 
 <script src="cities.js"></script>
@@ -70,15 +73,21 @@ CITIES.forEach(([sid,name,st])=>citySel.add(new Option(name+', '+st,sid)));
 citySel.value=new URLSearchParams(location.search).get('city')||store.get('city')||'DEN';
 if(!citySel.value)citySel.value='DEN';
 
-// Each statistic: how to compute it from one year's daily rows, how to show it.
+// Each statistic: how to compute it from one year's daily rows (°F departures), how to show it.
+// kind: 'temp' = a °F difference (shown in the chosen unit), 'pct' = percent of days, 'count' = days past a threshold
 const STATS=[
-  {id:'mh',title:'Average high vs. normal',unit:'°F',f:D=>mean(D.map(r=>r.dh)),sign:true,zero:true},
-  {id:'ml',title:'Average low vs. normal',unit:'°F',f:D=>mean(D.map(r=>r.dl)),sign:true,zero:true},
-  {id:'pw',title:'Days with an above-normal high',unit:'% of days',f:D=>100*D.filter(r=>r.dh>0).length/D.length,ref:50,fmt:v=>v.toFixed(0)+'%'},
-  {id:'pl',title:'Days with an above-normal low',unit:'% of days',f:D=>100*D.filter(r=>r.dl>0).length/D.length,ref:50,fmt:v=>v.toFixed(0)+'%'},
-  {id:'hw',title:'Biggest warm departure (daily high above normal)',unit:'°F',f:D=>Math.max(...D.map(r=>r.dh)),color:'warm',sign:true},
-  {id:'cd',title:'Biggest cold departure (daily low below normal)',unit:'°F',f:D=>Math.min(...D.map(r=>r.dl)),color:'cool',sign:true},
+  {id:'mh',kind:'temp',title:'Average high vs. normal',f:D=>mean(D.map(r=>r.dh)),sign:true,zero:true},
+  {id:'ml',kind:'temp',title:'Average low vs. normal',f:D=>mean(D.map(r=>r.dl)),sign:true,zero:true},
+  {id:'pw',kind:'pct',title:'Days with an above-normal high',f:D=>100*D.filter(r=>r.dh>0).length/D.length,ref:50},
+  {id:'pl',kind:'pct',title:'Days with an above-normal low',f:D=>100*D.filter(r=>r.dl>0).length/D.length,ref:50},
+  {id:'nh',kind:'count',thr:'h',what:'high',f:(D,t)=>D.filter(r=>r.dh>=t).length,color:'warm'},
+  {id:'nl',kind:'count',thr:'l',what:'low',f:(D,t)=>D.filter(r=>r.dl>=t).length,color:'warm'},
+  {id:'hw',kind:'temp',title:'Biggest warm departure (daily high above normal)',f:D=>Math.max(...D.map(r=>r.dh)),color:'warm',sign:true},
+  {id:'cd',kind:'temp',title:'Biggest cold departure (daily low below normal)',f:D=>Math.min(...D.map(r=>r.dl)),color:'cool',sign:true},
 ];
+// Thresholds for the 'count' charts, kept in °F so switching units keeps their meaning.
+const thrF={h:+store.get('thr-h')||10,l:+store.get('thr-l')||10};
+const thrShown=k=>useC?Math.round(thrF[k]*50/9)/10:thrF[k];
 const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
 const sg=v=>(v>0?'+':'')+v.toFixed(1)+'°';
 
@@ -109,9 +118,7 @@ async function load(){
       for(const [y,D] of by){
         const partial=y===thisYear;
         if(D.length<300&&!partial)continue;
-        const row={y,n:D.length,partial,last:D[D.length-1].d};
-        STATS.forEach(s=>row[s.id]=s.f(D));
-        years.push(row);
+        years.push({y,n:D.length,partial,last:D[D.length-1].d,D}); // stats are computed when drawn
       }
       years.sort((a,b)=>a.y-b.y);
       cache.set(sid,years);
@@ -142,48 +149,72 @@ function render(years,sid){
   lastRender=[years,sid];
   out.hidden=false;
   const host=$('charts');host.replaceChildren();
-  const x0=years[0].y-1,x1=Math.max(years.at(-1).y,thisYear)+1;
   STATS.forEach(s=>{
-    const v=r=>s.fmt?r[s.id]:toD(r[s.id]); // shown in the chosen unit; % stays as is
     const sec=document.createElement('section');host.appendChild(sec);
-    const full=years.filter(r=>!r.partial),t=fit(full.map(r=>[r.y,v(r)]));
-    const per=t.b*10,fmtv=s.fmt||(x=>sg(x)+unit());
-    sec.innerHTML='<h2>'+s.title+'</h2><p class="trend">Trend: <b>'+(per>=0?'+':'')+per.toFixed(s.fmt?1:2)+(s.fmt?' percentage points':'°'+unit())+' per decade</b> over '+full[0].y+'–'+full.at(-1).y+'</p>'+
-      '<div class="wrap"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+s.title+' by year"></svg><div class="tip" hidden></div></div>';
-    const svg=sec.querySelector('svg'),tip=sec.querySelector('.tip');
-    const el=(tag,a)=>{const e=document.createElementNS(ns,tag);for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e};
-    const vals=years.map(r=>v(r)).concat(s.zero?[0]:[]).concat(s.ref?[s.ref]:[]);
-    let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*0.08||1;lo-=pad;hi+=pad;
-    const step=niceStep(hi-lo);lo=Math.floor(lo/step)*step;hi=Math.ceil(hi/step)*step;
-    const x=v=>m.l+(v-x0)/(x1-x0)*pw,y=v=>m.t+(hi-v)/(hi-lo)*ph;
-    // 1991-2020 normals period
-    el('rect',{x:x(1990.5),y:m.t,width:x(2020.5)-x(1990.5),height:ph,fill:'var(--band)'});
-    for(let v=lo;v<=hi+1e-9;v+=step){
-      el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:(s.zero&&Math.abs(v)<1e-9)||(s.ref===v)?'var(--muted)':'var(--grid)','stroke-width':(s.zero&&Math.abs(v)<1e-9)||(s.ref===v)?1.5:1});
-      el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end','font-size':12,fill:'var(--ink2)'}).textContent=s.fmt?Math.round(v)+'%':(v>0?'+':'')+(+v.toFixed(1))+'°';
+    const title=s.kind==='count'
+      ?'Number of days the '+s.what+' was <input type="number" class="thr" min="0" step="any" inputmode="decimal" aria-label="Degrees above normal" value="'+thrShown(s.thr)+'"> <span class="u">°'+unit()+'</span> or more above normal'
+      :s.title;
+    sec.innerHTML='<h2>'+title+'</h2><p class="trend"></p><div class="wrap"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+(s.title||'Number of days the '+s.what+' was far above normal')+' by year"></svg><div class="tip" hidden></div></div>';
+    if(s.kind==='count'){
+      const inp=sec.querySelector('input');
+      inp.addEventListener('input',()=>{
+        const n=parseFloat(inp.value);if(!(n>=0))return; // ignore blank or negative while typing
+        thrF[s.thr]=useC?n*9/5:n;store.set('thr-'+s.thr,thrF[s.thr]);
+        draw(sec,s,years,sid);
+      });
     }
-    const ys=x1-x0>100?20:10;
-    for(let v=Math.ceil((x0+1)/ys)*ys;v<x1;v+=ys){
-      el('line',{x1:x(v),x2:x(v),y1:H-m.b,y2:H-m.b+5,stroke:'var(--muted)'});
-      el('text',{x:x(v),y:H-m.b+18,'text-anchor':'middle','font-size':12,fill:'var(--ink2)'}).textContent=v;
-    }
-    const col=r=>s.color?'var(--'+s.color+')':s.sign?(v(r)>=0?'var(--warm)':'var(--cool)'):'var(--neutral)';
-    const dots=years.map(r=>el('circle',{cx:x(r.y),cy:y(v(r)),r:4,fill:r.partial?'var(--surface)':col(r),stroke:r.partial?col(r):'var(--surface)','stroke-width':r.partial?1.8:1.2}));
-    el('line',{x1:x(full[0].y),x2:x(full.at(-1).y),y1:y(t.a+t.b*full[0].y),y2:y(t.a+t.b*full.at(-1).y),stroke:'var(--ink)','stroke-width':2,'stroke-linecap':'round',opacity:.75});
-    // hover + click target: nearest year to the pointer
-    const hit=el('rect',{x:m.l,y:m.t,width:pw,height:ph,fill:'transparent',style:'cursor:pointer'});
-    let cur=-1;
-    const pick=ev=>{const b=svg.getBoundingClientRect(),yr=x0+((ev.clientX-b.left)*W/b.width-m.l)/pw*(x1-x0);
-      let best=0;years.forEach((r,i)=>{if(Math.abs(r.y-yr)<Math.abs(years[best].y-yr))best=i});return Math.abs(years[best].y-yr)<=3?best:-1};
-    const clear=()=>{tip.hidden=true;if(cur>=0)dots[cur].setAttribute('r',4);cur=-1};
-    hit.addEventListener('pointermove',ev=>{const i=pick(ev);if(i<0){clear();return}
-      if(cur>=0)dots[cur].setAttribute('r',4);cur=i;dots[i].setAttribute('r',6.5);
-      const r=years[i],b=svg.getBoundingClientRect();
-      tip.innerHTML='<b>'+r.y+'</b>'+(r.partial?' (through '+new Date(r.last+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+')':'')+'<br>'+fmtv(v(r))+'<br><span style="color:var(--muted)">'+r.n+' days · click for daily chart</span>';
-      tip.hidden=false;const px=x(r.y)*b.width/W,tw=tip.offsetWidth;tip.style.left=(px+12+tw>b.width?px-12-tw:px+12)+'px';tip.style.top='6px'});
-    hit.addEventListener('pointerleave',clear);
-    hit.addEventListener('click',ev=>{const i=pick(ev);if(i>=0)location.href='index.html?city='+sid+'&year='+years[i].y});
+    draw(sec,s,years,sid);
   });
+}
+
+// (Re)draw one statistic's chart and trend line; the threshold boxes call this on every keystroke.
+function draw(sec,s,years,sid){
+  const val=years.map(r=>s.kind==='temp'?toD(s.f(r.D)):s.kind==='count'?s.f(r.D,thrF[s.thr]):s.f(r.D));
+  const fmtv=s.kind==='temp'?x=>sg(x)+unit():s.kind==='pct'?x=>x.toFixed(0)+'%':x=>x+(x===1?' day':' days');
+  const fi=years.map((r,i)=>i).filter(i=>!years[i].partial),t=fit(fi.map(i=>[years[i].y,val[i]]));
+  const per=t.b*10,y0=years[fi[0]].y,y1=years[fi.at(-1)].y;
+  sec.querySelector('.trend').innerHTML='Trend: <b>'+(per>=0?'+':'')+per.toFixed(s.kind==='temp'?2:1)+
+    (s.kind==='temp'?'°'+unit():s.kind==='pct'?' percentage points':' days')+' per decade</b> over '+y0+'–'+y1;
+  const svg=sec.querySelector('svg'),tip=sec.querySelector('.tip');svg.replaceChildren();tip.hidden=true;
+  const el=(tag,a)=>{const e=document.createElementNS(ns,tag);for(const k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e};
+  const x0=years[0].y-1,x1=Math.max(years.at(-1).y,thisYear)+1;
+  const vals=val.concat(s.zero?[0]:[]).concat(s.ref?[s.ref]:[]);
+  let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*0.08||1;lo-=pad;hi+=pad;
+  if(s.kind!=='temp')lo=Math.max(0,lo);
+  let step=niceStep(hi-lo);if(s.kind==='count')step=Math.max(1,step);
+  lo=Math.floor(lo/step)*step;hi=Math.ceil(hi/step)*step;
+  const x=v=>m.l+(v-x0)/(x1-x0)*pw,y=v=>m.t+(hi-v)/(hi-lo)*ph;
+  // 1991-2020 normals period
+  el('rect',{x:x(1990.5),y:m.t,width:x(2020.5)-x(1990.5),height:ph,fill:'var(--band)'});
+  for(let v=lo;v<=hi+1e-9;v+=step){
+    const strong=(s.zero&&Math.abs(v)<1e-9)||s.ref===v;
+    el('line',{x1:m.l,x2:W-m.r,y1:y(v),y2:y(v),stroke:strong?'var(--muted)':'var(--grid)','stroke-width':strong?1.5:1});
+    el('text',{x:m.l-8,y:y(v)+4,'text-anchor':'end','font-size':12,fill:'var(--ink2)'}).textContent=
+      s.kind==='pct'?Math.round(v)+'%':s.kind==='count'?Math.round(v):(v>0?'+':'')+(+v.toFixed(1))+'°';
+  }
+  const ys=x1-x0>100?20:10;
+  for(let v=Math.ceil((x0+1)/ys)*ys;v<x1;v+=ys){
+    el('line',{x1:x(v),x2:x(v),y1:H-m.b,y2:H-m.b+5,stroke:'var(--muted)'});
+    el('text',{x:x(v),y:H-m.b+18,'text-anchor':'middle','font-size':12,fill:'var(--ink2)'}).textContent=v;
+  }
+  const col=i=>s.color?'var(--'+s.color+')':s.sign?(val[i]>=0?'var(--warm)':'var(--cool)'):'var(--neutral)';
+  const dots=years.map((r,i)=>el('circle',{cx:x(r.y),cy:y(val[i]),r:4,fill:r.partial?'var(--surface)':col(i),stroke:r.partial?col(i):'var(--surface)','stroke-width':r.partial?1.8:1.2}));
+  el('line',{x1:x(y0),x2:x(y1),y1:y(t.a+t.b*y0),y2:y(t.a+t.b*y1),stroke:'var(--ink)','stroke-width':2,'stroke-linecap':'round',opacity:.75});
+  // hover + click target: nearest year to the pointer
+  const hit=el('rect',{x:m.l,y:m.t,width:pw,height:ph,fill:'transparent',style:'cursor:pointer'});
+  let cur=-1;
+  const pick=ev=>{const b=svg.getBoundingClientRect(),yr=x0+((ev.clientX-b.left)*W/b.width-m.l)/pw*(x1-x0);
+    let best=0;years.forEach((r,i)=>{if(Math.abs(r.y-yr)<Math.abs(years[best].y-yr))best=i});return Math.abs(years[best].y-yr)<=3?best:-1};
+  const clear=()=>{tip.hidden=true;if(cur>=0)dots[cur].setAttribute('r',4);cur=-1};
+  hit.addEventListener('pointermove',ev=>{const i=pick(ev);if(i<0){clear();return}
+    if(cur>=0)dots[cur].setAttribute('r',4);cur=i;dots[i].setAttribute('r',6.5);
+    const r=years[i],b=svg.getBoundingClientRect();
+    tip.innerHTML='<b>'+r.y+'</b>'+(r.partial?' (through '+new Date(r.last+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+')':'')+'<br>'+fmtv(val[i])+
+      (s.kind==='count'?' with the '+s.what+' ≥ '+thrShown(s.thr)+'°'+unit()+' above normal':'')+
+      '<br><span style="color:var(--muted)">'+r.n+' days of data · click for daily chart</span>';
+    tip.hidden=false;const px=x(r.y)*b.width/W,tw=tip.offsetWidth;tip.style.left=(px+12+tw>b.width?px-12-tw:px+12)+'px';tip.style.top='6px'});
+  hit.addEventListener('pointerleave',clear);
+  hit.addEventListener('click',ev=>{const i=pick(ev);if(i>=0)location.href='index.html?city='+sid+'&year='+years[i].y});
 }
 unitButton($('units'),()=>{if(lastRender)render(...lastRender)});
 citySel.addEventListener('change',load);
