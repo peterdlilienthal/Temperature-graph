@@ -42,6 +42,7 @@ h2{font-size:15px;margin:22px 0 2px}h2 span{font-weight:400;color:var(--ink2)}
 #out.loading{opacity:.45;transition:opacity .2s}
 details{margin-top:18px;color:var(--ink2)}table.t{border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
 table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-align:right}table.t th:first-child,table.t td:first-child{text-align:left}
+#citytbl a{color:var(--cool)}#citytbl td{white-space:nowrap}
 .note{color:var(--muted);font-size:12.5px;margin-top:14px;max-width:80ch}
 @media (prefers-reduced-motion:reduce){#out.loading{transition:none}}
 </style>
@@ -67,6 +68,7 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
   <div class="wrap"><svg id="cl" viewBox="0 0 1000 300" role="img" aria-label="Column chart of daily low temperature departures from normal"></svg><div class="tip" hidden></div></div>
   <details><summary>Show data table</summary><div style="max-height:360px;overflow:auto"><table class="t" id="tbl"></table></div></details>
 </div>
+<details><summary>Show list of cities</summary><div style="max-height:360px;overflow:auto"><table class="t" id="citytbl"></table></div></details>
 
 <p class="note">Data: NOAA daily observations and 1991–2020 daily normals, fetched live from the ACIS web service (data.rcc-acis.org). Each city uses its official airport (or Central Park for New York) climate station. The normals are the same 1991–2020 baseline for every year shown. Data for the last few days is preliminary.</p>
 </main>
@@ -222,6 +224,10 @@ function chart(svg,D,days,ymax,key,act,nrm,label){
   hit.addEventListener('pointerleave',clear);
 }
 
+// City list: start year of the record, plus any years skipped for incomplete data
+$('citytbl').innerHTML='<tr><th>City</th><th>Data starts</th><th>Years missing</th></tr>'+CITIES.map(([sid,name,st,r])=>{
+  const gaps=r.slice(1).map((g,i)=>{const a=r[i][1]+1,b=g[0]-1;return a===b?a:a+'–'+b}).join(', ');
+  return '<tr><td><a href="?city='+sid+'">'+name+', '+st+'</a></td><td>'+r[0][0]+'</td><td>'+(gaps||'—')+'</td></tr>'}).join('');
 const trendsLink=()=>{$('trends').href='trends.html?city='+citySel.value};
 trendsLink();
 citySel.addEventListener('change',()=>{fillYears();trendsLink();load()});
