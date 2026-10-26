@@ -62,8 +62,9 @@ h2 .u{font-weight:700;color:var(--cool)}
 <p class="note">Data: NOAA daily observations and 1991–2020 daily normals from the ACIS web service (data.rcc-acis.org), for the city's official climate station. Years with fewer than 300 days of complete readings are left out; in years with a few missing days, the day counts can be slightly low. Trend lines are ordinary least-squares fits over the complete years shown. Because every year is compared with the same 1991–2020 normals, years before 1991 tend to sit below zero and recent years above it when a station has warmed.</p>
 </main>
 
-<script src="cities.js"></script>
-<script src="units.js"></script>
+<!-- Bump ?v= whenever cities.js or units.js changes, so browsers never mix a new page with old cached helpers. -->
+<script src="cities.js?v=2"></script>
+<script src="units.js?v=2"></script>
 <script>
 const $=id=>document.getElementById(id);
 const citySel=$('city'),statusEl=$('status'),out=$('out');
@@ -100,11 +101,7 @@ async function load(){
   try{
     let years=cache.get(sid);
     if(!years){
-      const r=await fetch('https://data.rcc-acis.org/StnData',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({uid:c[4],sdate:'por',edate:'por',elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]})});
-      if(!r.ok)throw new Error('NOAA server returned '+r.status);
-      const j=await r.json();
-      if(j.error)throw new Error(j.error);
+      const j=await fetchACIS({uid:c[4],sdate:'por',edate:'por',elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]});
       const by=new Map();
       for(const [d,h,l,nh,nl] of j.data||[]){
         const v=[h,l,nh,nl].map(Number);if(v.some(isNaN))continue;
@@ -128,8 +125,7 @@ async function load(){
   }catch(e){
     if(id!==reqId)return;
     out.classList.remove('loading');out.hidden=true;statusEl.className='status err';
-    statusEl.textContent=e instanceof TypeError?'Could not reach the NOAA data service. Check your internet connection and try again.'
-      :'NOAA could not provide data for '+c[1]+' ('+e.message+').';
+    statusEl.textContent=loadError(e,c[1]);
   }
 }
 

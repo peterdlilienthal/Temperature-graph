@@ -19,3 +19,25 @@ const CITIES=[
 ["SLC","Salt Lake City","UT",[[1929,2026]],24790],["SAT","San Antonio","TX",[[1943,2026]],22975],["SAN","San Diego","CA",[[1940,2026]],13],["SFO","San Francisco","CA",[[1946,2026]],16],
 ["SEA","Seattle","WA",[[1945,2026]],25978],["FSD","Sioux Falls","SD",[[1893,2026]],16707],["GEG","Spokane","WA",[[1881,2026]],29736],["TPA","Tampa","FL",[[1939,2026]],4604],
 ["TUS","Tucson","AZ",[[1949,2026]],29687],["DCA","Washington","DC",[[1942,2026]],25528],["ICT","Wichita","KS",[[1954,2026]],57]];
+
+// Fetch from NOAA's ACIS service. Failures are tagged (kind: 'network' or 'noaa') so the
+// pages can tell a NOAA or connection problem apart from a bug in the page itself.
+async function fetchACIS(body) {
+  const fail = (kind, msg) => Object.assign(new Error(msg), { kind });
+  let r;
+  try {
+    r = await fetch('https://data.rcc-acis.org/StnData', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } catch (e) { throw fail('network', e.message) }
+  if (!r.ok) throw fail('noaa', 'NOAA server returned ' + r.status);
+  let j;
+  try { j = await r.json() } catch (e) { throw fail('noaa', 'unreadable reply from NOAA') }
+  if (j.error && !/no data/i.test(j.error)) throw fail('noaa', j.error); // "no data" = an empty result
+  return j;
+}
+
+// Message for a failed load: what went wrong and what the visitor can do about it.
+function loadError(e, what) {
+  if (e.kind === 'network') return 'Could not reach the NOAA data service. Check your internet connection and try again.';
+  if (e.kind === 'noaa') return 'NOAA could not provide data for ' + what + ' (' + e.message + '). Try another year or city.';
+  return 'This page did not load completely (' + e.message + '). Reload the page with Ctrl+F5 (Cmd+Shift+R on a Mac).';
+}

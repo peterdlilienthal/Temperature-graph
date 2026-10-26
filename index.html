@@ -107,8 +107,9 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
   <button type="button" class="close" popovertarget="explanation-note" popovertargetaction="hide">Close</button>
 </div>
 
-<script src="cities.js"></script>
-<script src="units.js"></script>
+<!-- Bump ?v= whenever cities.js or units.js changes, so browsers never mix a new page with old cached helpers. -->
+<script src="cities.js?v=2"></script>
+<script src="units.js?v=2"></script>
 <script>
 
 const $=id=>document.getElementById(id);
@@ -145,11 +146,7 @@ async function load(){
   try{
     let rows=cache.get(key);
     if(!rows){
-      const r=await fetch('https://data.rcc-acis.org/StnData',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({uid:c[4],sdate:year+'-01-01',edate:end,elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]})});
-      if(!r.ok)throw new Error('NOAA server returned '+r.status);
-      const j=await r.json();
-      if(j.error&&!/no data/i.test(j.error))throw new Error(j.error);
+      const j=await fetchACIS({uid:c[4],sdate:year+'-01-01',edate:end,elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]});
       rows=[];
       for(const [d,h,l,nh,nl] of j.data||[]){
         const v=[h,l,nh,nl].map(Number);if(v.some(isNaN))continue; // 'M' = missing
@@ -167,9 +164,7 @@ async function load(){
     if(id!==reqId)return;
     out.classList.remove('loading');out.hidden=true;
     statusEl.className='status err';
-    statusEl.textContent=e instanceof TypeError
-      ?'Could not reach the NOAA data service. Check your internet connection and try again.'
-      :'NOAA could not provide data for '+c[1]+' in '+year+' ('+e.message+'). Try another year or city.';
+    statusEl.textContent=loadError(e,c[1]+' in '+year);
   }
 }
 
