@@ -33,6 +33,9 @@ h2{font-size:15px;margin:22px 0 2px}h2 span{font-weight:400;color:var(--ink2)}
 .pop{max-width:min(34rem,calc(100% - 32px));padding:18px 20px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14.5px;line-height:1.55;box-shadow:0 8px 30px rgba(0,0,0,.18)}
 .pop::backdrop{background:rgba(0,0,0,.25)}
 .pop p{margin:0 0 12px}
+#explanation-note{max-width:min(42rem,calc(100% - 32px));max-height:min(80vh,calc(100% - 32px));overflow:auto}
+.pop h3{font-size:15px;margin:18px 0 8px;text-wrap:balance}
+.pop ul{margin:0 0 12px;padding-left:20px}.pop li{margin-bottom:6px}
 .pop .close{font:inherit;font-size:13px;color:var(--ink2);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 12px;cursor:pointer}
 #out.loading{opacity:.45;transition:opacity .2s}
 details{margin-top:18px;color:var(--ink2)}table.t{border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
@@ -70,7 +73,24 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
   <button type="button" class="close" popovertarget="normal-note" popovertargetaction="hide">Close</button>
 </div>
 <div id="explanation-note" class="pop" popover>
-  <p>More explanation coming soon.</p>
+  <p>There are two kinds of average in the app.</p>
+  <h3>1. The “normal” for each day (the baseline every column is measured against)</h3>
+  <p>The app doesn’t calculate these itself. It downloads NOAA’s official 1991–2020 daily normals for each weather station, published by the National Centers for Environmental Information. Roughly, NOAA makes them like this:</p>
+  <ul>
+    <li>Start with 30 years of readings from the station, 1991 through 2020.</li>
+    <li>Fill gaps and adjust for changes. Missing days are estimated from nearby stations. Records are adjusted for things like station moves or new instruments, so the 30 years are comparable. For example, Denver’s airport station only opened in 1994, so its first few years come from those estimates. By contrast, New York (Central Park), NY has data going back to 1869.</li>
+    <li>Calculate monthly averages first, for example the average January high.</li>
+    <li>Fit a smooth curve through the 12 monthly values to get a value for every calendar day.</li>
+  </ul>
+  <p>Averaging each date directly, say all 30 March 19ths, would give a jagged line, because one freak warm day moves that date’s average by a degree. The curve instead rises and falls smoothly through the year. For example, Denver’s normal high goes 44°, 44°, 44°… in early January and creeps up a degree every few days.</p>
+  <p>A few things follow from this:</p>
+  <ul>
+    <li>Whole degrees: NOAA’s data service gives the normals rounded to whole °F.</li>
+    <li>Same baseline for every year: a 1950 chart is compared with 1991–2020 normals too. It shows how 1950 compares with recent climate, not with the climate of its own time.</li>
+    <li>Each station has its own normals. For example, Denver is compared with Denver airport’s history, not with a regional average.</li>
+  </ul>
+  <h3>2. The averages in the summary boxes (“Highs vs. normal +5.2°F”)</h3>
+  <p>The app calculates these: it adds up each day’s difference (actual minus normal) and divides by the number of days with data. For Denver 2026, the 297 daily high differences average out to +5.2°F. Days with a missing reading are left out, so the box also shows the day count.</p>
   <button type="button" class="close" popovertarget="explanation-note" popovertargetaction="hide">Close</button>
 </div>
 
