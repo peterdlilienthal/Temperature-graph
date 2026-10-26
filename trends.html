@@ -18,6 +18,7 @@ h1{font-size:21px;margin:0 0 4px;text-wrap:balance}p.sub{color:var(--ink2);margi
 select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 10px;width:min(320px,100%)}
 select:focus-visible,a:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
 a{color:var(--cool)}
+#back{padding-bottom:8px}
 .status{color:var(--ink2);font-size:13px;padding-bottom:8px}.status.err{color:var(--err)}
 #out.loading{opacity:.45}
 .key{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--ink2);font-size:12.5px;margin:4px 0 6px}
@@ -86,7 +87,7 @@ async function load(){
     let years=cache.get(sid);
     if(!years){
       const r=await fetch('https://data.rcc-acis.org/StnData',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({sid,sdate:'por',edate:'por',elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]})});
+        body:JSON.stringify({uid:c[4],sdate:'por',edate:'por',elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]})});
       if(!r.ok)throw new Error('NOAA server returned '+r.status);
       const j=await r.json();
       if(j.error)throw new Error(j.error);

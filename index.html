@@ -135,7 +135,7 @@ async function load(){
     let rows=cache.get(key);
     if(!rows){
       const r=await fetch('https://data.rcc-acis.org/StnData',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({sid,sdate:year+'-01-01',edate:end,elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]})});
+        body:JSON.stringify({uid:c[4],sdate:year+'-01-01',edate:end,elems:[{name:'maxt'},{name:'mint'},{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]})});
       if(!r.ok)throw new Error('NOAA server returned '+r.status);
       const j=await r.json();
       if(j.error&&!/no data/i.test(j.error))throw new Error(j.error);
