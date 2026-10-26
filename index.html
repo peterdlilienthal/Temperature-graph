@@ -27,6 +27,13 @@ h2{font-size:15px;margin:22px 0 2px}h2 span{font-weight:400;color:var(--ink2)}
 .wrap{position:relative}svg{width:100%;height:auto;display:block}
 .tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--grid);border-radius:6px;padding:8px 10px;font-size:12.5px;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap;font-variant-numeric:tabular-nums}
 [hidden]{display:none!important}
+.term{font:inherit;color:var(--cool);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}
+.term:hover{text-decoration-thickness:2px}
+.term:focus-visible{outline:2px solid var(--cool);outline-offset:2px;border-radius:2px}
+.pop{max-width:min(34rem,calc(100% - 32px));padding:18px 20px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font-size:14.5px;line-height:1.55;box-shadow:0 8px 30px rgba(0,0,0,.18)}
+.pop::backdrop{background:rgba(0,0,0,.25)}
+.pop p{margin:0 0 12px}
+.pop .close{font:inherit;font-size:13px;color:var(--ink2);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px 12px;cursor:pointer}
 #out.loading{opacity:.45;transition:opacity .2s}
 details{margin-top:18px;color:var(--ink2)}table.t{border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
 table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-align:right}table.t th:first-child,table.t td:first-child{text-align:left}
@@ -36,7 +43,7 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
 </head>
 <body>
 <main>
-<h1 id="title">Daily temperature vs. normal</h1>
+<h1><span id="title">Daily temperature</span> vs. <button type="button" class="term" popovertarget="normal-note">normal</button></h1>
 <p class="sub">Pick a city and year. Each column is one day's high or low minus NOAA's 1991–2020 normal for that date at the same weather station.</p>
 
 <div class="controls">
@@ -57,6 +64,15 @@ table.t th,table.t td{padding:3px 10px;border-bottom:1px solid var(--grid);text-
 
 <p class="note">Data: NOAA daily observations and 1991–2020 daily normals, fetched live from the ACIS web service (data.rcc-acis.org). Each city uses its official airport (or Central Park for New York) climate station. The normals are the same 1991–2020 baseline for every year shown. Data for the last few days is preliminary.</p>
 </main>
+
+<div id="normal-note" class="pop" popover>
+  <p>I would prefer not to use the normal because of the ongoing secular warming trend in the data, but the app is using NOAA data and that is the word they use. Here is more <button type="button" class="term" popovertarget="explanation-note">explanation</button>.</p>
+  <button type="button" class="close" popovertarget="normal-note" popovertargetaction="hide">Close</button>
+</div>
+<div id="explanation-note" class="pop" popover>
+  <p>More explanation coming soon.</p>
+  <button type="button" class="close" popovertarget="explanation-note" popovertargetaction="hide">Close</button>
+</div>
 
 <script>
 // [ACIS station id, city, state, year ranges with a (near-)complete daily max/min record]
@@ -146,7 +162,7 @@ const fmtDate=d=>new Date(d+'T12:00').toLocaleDateString('en-US',{month:'short',
 function render(D,c,year){
   out.hidden=false;
   const name=c[1]+', '+c[2];
-  $('title').textContent=name+' '+year+': daily temperature vs. normal';
+  $('title').textContent=name+' '+year+': daily temperature';
   document.title=c[1]+' '+year+' vs. Normal';
   const avg=k=>D.reduce((s,r)=>s+r[k],0)/D.length;
   const mh=avg('dh'),ml=avg('dl'),warm=D.filter(r=>r.dh>0).length;
