@@ -75,6 +75,7 @@ const STATS=[
   {id:'mh',title:'Average high vs. normal',unit:'°F',f:D=>mean(D.map(r=>r.dh)),sign:true,zero:true},
   {id:'ml',title:'Average low vs. normal',unit:'°F',f:D=>mean(D.map(r=>r.dl)),sign:true,zero:true},
   {id:'pw',title:'Days with an above-normal high',unit:'% of days',f:D=>100*D.filter(r=>r.dh>0).length/D.length,ref:50,fmt:v=>v.toFixed(0)+'%'},
+  {id:'pl',title:'Days with an above-normal low',unit:'% of days',f:D=>100*D.filter(r=>r.dl>0).length/D.length,ref:50,fmt:v=>v.toFixed(0)+'%'},
   {id:'hw',title:'Biggest warm departure (daily high above normal)',unit:'°F',f:D=>Math.max(...D.map(r=>r.dh)),color:'warm',sign:true},
   {id:'cd',title:'Biggest cold departure (daily low below normal)',unit:'°F',f:D=>Math.min(...D.map(r=>r.dl)),color:'cool',sign:true},
 ];
