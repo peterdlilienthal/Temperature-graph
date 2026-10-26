@@ -187,12 +187,13 @@ function render(rows,c,year){
   $('title').textContent=name+' '+year+': daily temperature';
   document.title=c[1]+' '+year+' vs. Normal';
   const avg=k=>D.reduce((s,r)=>s+r[k],0)/D.length;
-  const mh=avg('dh'),ml=avg('dl'),warm=D.filter(r=>r.dh>0).length;
+  const mh=avg('dh'),ml=avg('dl'),warm=D.filter(r=>r.dh>0).length,warmL=D.filter(r=>r.dl>0).length;
   const hot=D.reduce((a,r)=>r.dh>a.dh?r:a),cold=D.reduce((a,r)=>r.dl<a.dl?r:a);
   $('stats').innerHTML=
     stat('Highs vs. normal',sg(mh)+U,'average, '+D.length+' days')+
     stat('Lows vs. normal',sg(ml)+U,'average, '+fmtDate(D[0].d)+' – '+fmtDate(D[D.length-1].d))+
     stat('Days with above-normal high',warm+' of '+D.length,Math.round(100*warm/D.length)+'% of days')+
+    stat('Days with above-normal low',warmL+' of '+D.length,Math.round(100*warmL/D.length)+'% of days')+
     stat('Biggest warm departure',sg(hot.dh)+U,fmtDate(hot.d)+': high '+hot.h+'° vs. '+hot.nh+'°')+
     stat('Biggest cold departure',sg(cold.dl)+U,fmtDate(cold.d)+': low '+cold.l+'° vs. '+cold.nl+'°');
   $('mh').textContent='· average '+sg(mh)+U;$('ml').textContent='· average '+sg(ml)+U;
