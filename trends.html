@@ -85,9 +85,6 @@ const STATS=[
   {id:'hw',kind:'temp',title:'Biggest warm departure (daily high above normal)',f:D=>Math.max(...D.map(r=>r.dh)),color:'warm',sign:true},
   {id:'cd',kind:'temp',title:'Biggest cold departure (daily low below normal)',f:D=>Math.min(...D.map(r=>r.dl)),color:'cool',sign:true},
 ];
-// Thresholds for the 'count' charts, kept in °F so switching units keeps their meaning.
-const thrF={h:+store.get('thr-h')||10,l:+store.get('thr-l')||10};
-const thrShown=k=>useC?Math.round(thrF[k]*50/9)/10:thrF[k];
 const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
 const sg=v=>(v>0?'+':'')+v.toFixed(1)+'°';
 
@@ -152,14 +149,14 @@ function render(years,sid){
   STATS.forEach(s=>{
     const sec=document.createElement('section');host.appendChild(sec);
     const title=s.kind==='count'
-      ?'Number of days the '+s.what+' was <input type="number" class="thr" min="0" step="any" inputmode="decimal" aria-label="Degrees above normal" value="'+thrShown(s.thr)+'"> <span class="u">°'+unit()+'</span> or more above normal'
+      ?'Number of days the '+s.what+' was '+thrInput(s.thr)+' or more above normal'
       :s.title;
     sec.innerHTML='<h2>'+title+'</h2><p class="trend"></p><div class="wrap"><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+(s.title||'Number of days the '+s.what+' was far above normal')+' by year"></svg><div class="tip" hidden></div></div>';
     if(s.kind==='count'){
       const inp=sec.querySelector('input');
       inp.addEventListener('input',()=>{
         const n=parseFloat(inp.value);if(!(n>=0))return; // ignore blank or negative while typing
-        thrF[s.thr]=useC?n*9/5:n;store.set('thr-'+s.thr,thrF[s.thr]);
+        setThr(s.thr,n);
         draw(sec,s,years,sid);
       });
     }

@@ -18,6 +18,8 @@ h1{font-size:21px;margin:0 0 4px;text-wrap:balance}p.sub{color:var(--ink2);margi
 .btn:hover{filter:brightness(1.08)}.btn:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
 .head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:8px 16px}.head h1{flex:1 1 20rem;min-width:0}
 .unitbtn{font:inherit;font-size:13px;font-weight:600;color:var(--cool);background:var(--surface);border:1px solid var(--cool);border-radius:6px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.thr{font:inherit;font-weight:600;width:3.8em;padding:0 4px;color:var(--ink);background:var(--surface);border:1px solid var(--cool);border-radius:4px;text-align:right}
+.thr:focus-visible{outline:2px solid var(--cool);outline-offset:1px}.stat .u{font-weight:700;color:var(--cool)}
 .unitbtn:hover{background:var(--panel)}.unitbtn:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
 .controls label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2);letter-spacing:.02em}
 select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:0}
@@ -194,8 +196,15 @@ function render(rows,c,year){
     stat('Lows vs. normal',sg(ml)+U,'average, '+fmtDate(D[0].d)+' – '+fmtDate(D[D.length-1].d))+
     stat('Days with above-normal high',warm+' of '+D.length,Math.round(100*warm/D.length)+'% of days')+
     stat('Days with above-normal low',warmL+' of '+D.length,Math.round(100*warmL/D.length)+'% of days')+
+    cntBox('h','high')+cntBox('l','low')+
     stat('Biggest warm departure',sg(hot.dh)+U,fmtDate(hot.d)+': high '+hot.h+'° vs. '+hot.nh+'°')+
     stat('Biggest cold departure',sg(cold.dl)+U,fmtDate(cold.d)+': low '+cold.l+'° vs. '+cold.nl+'°');
+  // the threshold boxes update only their own count, so typing keeps focus
+  $('stats').querySelectorAll('input.thr').forEach(inp=>inp.addEventListener('input',()=>{
+    const n=parseFloat(inp.value);if(!(n>=0))return;
+    setThr(inp.dataset.thr,n);fillCount(inp.dataset.thr,rows);
+  }));
+  fillCount('h',rows);fillCount('l',rows);
   $('mh').textContent='· average '+sg(mh)+U;$('ml').textContent='· average '+sg(ml)+U;
   const days=(year%4===0&&(year%100!==0||year%400===0))?366:365;
   const g=useC?5:10; // axis rounding: 10 °F or 5 °C
@@ -206,6 +215,12 @@ function render(rows,c,year){
     D.map(r=>'<tr><td>'+r.d+'</td><td>'+r.doy+'</td><td>'+r.h+'</td><td>'+r.nh+'</td><td>'+sg(r.dh)+'</td><td>'+r.l+'</td><td>'+r.nl+'</td><td>'+sg(r.dl)+'</td></tr>').join('');
 }
 function stat(k,v,d){return '<div class="stat"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="d">'+d+'</div></div>'}
+// "Days with high ≥ [10] °F above normal": the count is filled in by fillCount
+function cntBox(k,what){return '<div class="stat"><div class="k">Days with '+what+' ≥ '+thrInput(k)+' above normal</div><div class="v" id="cnt-'+k+'"></div><div class="d" id="cntp-'+k+'"></div></div>'}
+function fillCount(k,rows){ // rows are in °F, like thrF
+  const n=rows.filter(r=>(k==='h'?r.dh:r.dl)>=thrF[k]).length;
+  $('cnt-'+k).textContent=n+' of '+rows.length;$('cntp-'+k).textContent=Math.round(100*n/rows.length)+'% of days';
+}
 
 function chart(svg,D,days,ymax,key,act,nrm,label){
   svg.replaceChildren();
