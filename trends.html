@@ -73,8 +73,8 @@ const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},se
 const ALL='ALL'; // the aggregated pseudo-city
 citySel.add(new Option('All cities (aggregated)',ALL));
 CITIES.forEach(([sid,name,st])=>citySel.add(new Option(name+', '+st,sid)));
-citySel.value=new URLSearchParams(location.search).get('city')||store.get('city')||'DEN';
-if(!citySel.value)citySel.value='DEN';
+citySel.value=new URLSearchParams(location.search).get('city')||store.get('city')||'ABQ';
+if(!citySel.value)citySel.value='ABQ';
 
 // Each statistic: how to compute it from one year's daily rows (°F departures), how to show it.
 // kind: 'temp' = a °F difference (shown in the chosen unit), 'pct' = percent of days, 'count' = days past a threshold

@@ -121,8 +121,8 @@ const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},se
 CITIES.forEach(([sid,name,st])=>citySel.add(new Option(name+', '+st,sid)));
 // ?city=DEN&year=1950 (links from the trends page) wins over the remembered choice
 const qp=new URLSearchParams(location.search);
-citySel.value=qp.get('city')||store.get('city')||'DEN';
-if(!citySel.value)citySel.value='DEN';
+citySel.value=qp.get('city')||store.get('city')||'ABQ';
+if(!citySel.value)citySel.value='ABQ'; // also covers 'ALL' left over from the trends page
 function fillYears(){
   const c=CITIES.find(c=>c[0]===citySel.value),prev=+yearSel.value||+qp.get('year')||+store.get('year')||thisYear;
   const years=[];
